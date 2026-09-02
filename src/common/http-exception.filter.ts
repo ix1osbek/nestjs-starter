@@ -9,19 +9,6 @@ import {
 import type { Request, Response } from 'express'
 import { AppException } from './app.exception'
 
-/**
- * Barcha xatolarni yagona formatga soladi:
- *
- *   {
- *     "statusCode": 404,
- *     "message": "Foydalanuvchi topilmadi",
- *     "errors": { "email": ["Email noto'g'ri"] },   // faqat validatsiyada
- *     "path": "/api/users/5",
- *     "timestamp": "2026-08-26T10:00:00.000Z"
- *   }
- *
- * Muvaffaqiyatli javob o'ralmaydi — controller nima qaytarsa, o'sha ketadi.
- */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
     private readonly logger = new Logger('Exception')
@@ -43,7 +30,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
             status = exception.getStatus()
             message = extractMessage(exception)
         } else {
-            // Kutilmagan xato — to'liq stack faqat logga, javobga chiqmaydi.
             this.logger.error(
                 exception instanceof Error ? exception.message : String(exception),
                 exception instanceof Error ? exception.stack : undefined,
@@ -60,7 +46,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 }
 
-/** Nest'ning o'z xatolaridan matnni ajratib oladi. */
 function extractMessage(exception: HttpException): string {
     const body = exception.getResponse()
 

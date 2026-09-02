@@ -3,12 +3,6 @@ import type { Response } from 'express'
 import { DatabaseService } from '../database/database.service'
 import { Env } from '../config/env'
 
-/**
- * GET /api/health — servis va baza tirikligini tekshirish.
- *
- * Baza yotgan bo'lsa 503 qaytadi, aks holda 200. Load balancer va k8s
- * probe'lari aynan status kodga qaraydi — javob matniga emas.
- */
 @Controller('health')
 export class HealthController {
     constructor(private readonly db: DatabaseService) {}

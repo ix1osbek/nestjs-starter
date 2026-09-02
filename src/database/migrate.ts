@@ -3,35 +3,8 @@ import { join } from 'node:path'
 import { Pool, PoolClient } from 'pg'
 import { Env } from '../config/env'
 
-/**
- * Migratsiya:
- *
- *   npm run migrate        — dev (ts-node, src/ dan o'qiydi)
- *   npm run migrate:prod   — prod (dist/ dan, build qilingandan keyin)
- *
- * migrations/ papkasidagi .sql fayllar nom tartibida bajariladi.
- * Avval qo'llanganlari o'tkazib yuboriladi, faqat yangilari ishga tushadi.
- * Har biri alohida tranzaksiyada — xato bo'lsa, o'sha fayl butunlay bekor
- * qilinadi va jarayon to'xtaydi (keyingilariga o'tmaydi).
- *
- * Butun jarayon advisory lock ostida — bir nechta instance bir vaqtda
- * deploy bo'lsa, ular navbat bilan ishlaydi, bir migratsiya ikki marta
- * qo'llanmaydi.
- *
- * Yangi migratsiya = migrations/ ichiga yangi fayl:
- *
- *   migrations/001_create_users.sql
- *   migrations/002_add_posts.sql
- *
- * Fayl ichida oddiy SQL. Nomni raqam bilan boshlang — tartib shunga qarab.
- * Qo'llangan faylni O'ZGARTIRMANG — yangisini qo'shing.
- */
-
-// __dirname ga nisbatan — ts-node'da src/database/, build'dan keyin dist/database/.
-// .sql fayllarni dist/ ga nusxalashni nest-cli.json dagi "assets" bajaradi.
 const MIGRATIONS_DIR = join(__dirname, 'migrations')
 
-/** Butun migratsiya jarayoni uchun yagona qulf raqami. */
 const LOCK_ID = 4_242_424_242
 
 const pool = new Pool({
@@ -84,10 +57,6 @@ async function main(): Promise<void> {
     })
 }
 
-/**
- * Session-level advisory lock. Boshqa instance ishlayotgan bo'lsa — kutadi.
- * Qulf bitta ulanishda ushlanishi shart, shuning uchun alohida client.
- */
 async function withLock(work: () => Promise<void>): Promise<void> {
     const client: PoolClient = await pool.connect()
     await client.query('SELECT pg_advisory_lock($1)', [LOCK_ID])
@@ -97,9 +66,7 @@ async function withLock(work: () => Promise<void>): Promise<void> {
     } finally {
         try {
             await client.query('SELECT pg_advisory_unlock($1)', [LOCK_ID])
-        } catch {
-            // Ulanish uzilgan bo'lsa qulf o'zi bo'shaydi — e'tibor bermaymiz.
-        }
+        } catch {}
         client.release()
     }
 }
@@ -132,9 +99,7 @@ async function apply(name: string): Promise<void> {
     } catch (error) {
         try {
             await client.query('ROLLBACK')
-        } catch {
-            // Asl xatoni yo'qotmaslik uchun yutamiz.
-        }
+        } catch {}
         console.error(`   ❌ ${name}  — bekor qilindi`)
         console.error(`      ${error instanceof Error ? error.message : String(error)}\n`)
         throw error

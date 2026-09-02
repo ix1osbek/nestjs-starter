@@ -16,13 +16,11 @@ async function bootstrap(): Promise<void> {
     }
 
     app.setGlobalPrefix('api')
-    // credentials faqat aniq originlar bilan — brauzer `*` + credentials'ni rad etadi.
     app.enableCors({ origin, credentials: origin !== '*' })
     app.useGlobalPipes(new ValidationPipe())
     app.useGlobalFilters(new HttpExceptionFilter())
     app.enableShutdownHooks()
 
-    // Baza ishlamasa — serverni umuman ko'tarmaymiz.
     const db = app.get(DatabaseService)
     try {
         await db.checkConnection()
