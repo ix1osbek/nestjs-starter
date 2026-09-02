@@ -1,14 +1,41 @@
-import {NestFactory} from '@nestjs/core';
-import {AppModule} from './app.module'
-import {Env} from './config/env'
-import {checkPoolConnection} from "./database/database";
+import { Logger } from '@nestjs/common'
+import { NestFactory } from '@nestjs/core'
+import { AppModule } from './app.module'
+import { HttpExceptionFilter } from './common/http-exception.filter'
+import { ValidationPipe } from './common/validation.pipe'
+import { Env } from './config/env'
+import { DatabaseService } from './database/database.service'
 
-async function bootstrap() {
-    const app = await NestFactory.create(AppModule);
-    await app.listen(Env.PORT, () => {
-        console.log(`Server started on port ${Env.PORT}`)
-    })
-    checkPoolConnection()
+async function bootstrap(): Promise<void> {
+    const logger = new Logger('Bootstrap')
+    const app = await NestFactory.create(AppModule)
+
+    const origin = Env.corsOrigins
+    if (Env.isProd && origin === '*') {
+        logger.warn('CORS hamma originga ochiq. Prod uchun .env da CORS_ORIGIN ni belgilang.')
+    }
+
+    app.setGlobalPrefix('api')
+    // credentials faqat aniq originlar bilan — brauzer `*` + credentials'ni rad etadi.
+    app.enableCors({ origin, credentials: origin !== '*' })
+    app.useGlobalPipes(new ValidationPipe())
+    app.useGlobalFilters(new HttpExceptionFilter())
+    app.enableShutdownHooks()
+
+    // Baza ishlamasa — serverni umuman ko'tarmaymiz.
+    const db = app.get(DatabaseService)
+    try {
+        await db.checkConnection()
+        logger.log(`Bazaga ulanildi — ${Env.dbTarget}`)
+    } catch (error) {
+        logger.error(`Bazaga ulanib bo'lmadi — ${Env.dbTarget}`)
+        logger.error(error instanceof Error ? error.message : String(error))
+        await app.close()
+        process.exit(1)
+    }
+
+    await app.listen(Env.PORT)
+    logger.log(`Server tayyor — http://localhost:${Env.PORT}/api  [${Env.NODE_ENV}]`)
 }
 
-bootstrap();
+bootstrap()
